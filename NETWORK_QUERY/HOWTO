@@ -1,0 +1,5 @@
+To run this command....
+
+sh networkquery.sh xxx.xxx.xxx
+Note: The last octect evaluated inside the script as a range between 1-255
+
