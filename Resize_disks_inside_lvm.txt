@@ -1,0 +1,264 @@
+Add disks to LVM:
+=================
+
+root@PAR-PRD-BMI01:~# lsblk
+NAME               MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda                  8:0    0   15G  0 disk
++-sda1               8:1    0  243M  0 part /boot
++-sda2               8:2    0    1K  0 part
++-sda5               8:5    0 14.8G  0 part
+  +-sys--vg-root   254:0    0  3.7G  0 lvm  /
+  +-sys--vg-home   254:2    0  4.1G  0 lvm  /home
+  +-sys--vg-tmp    254:3    0  476M  0 lvm  /tmp
+  +-sys--vg-var    254:4    0  3.7G  0 lvm  /var
+  +-sys--vg-swap   254:5    0  1.1G  0 lvm  [SWAP]
+sdb                  8:16   0   50G  0 disk
++-sdb1               8:17   0   50G  0 part
+  +-data--vg-data1 254:1    0   50G  0 lvm  /data
+sr0                 11:0    1 1024M  0 rom
+testvg-testlv      254:6    0    4G  0 lvm
+root@PAR-PRD-BMI01:~# pvs
+  PV         VG      Fmt  Attr PSize   PFree
+  /dev/sda5  sys-vg  lvm2 a--   14.75g 1.67g
+  /dev/sdb1  data-vg lvm2 a--  <50.00g    0
+
+root@PAR-PRD-BMI01:~# lsscsi
+[0:0:0:0]    disk    VMware   Virtual disk     1.0   /dev/sda
+[0:0:1:0]    disk    VMware   Virtual disk     1.0   /dev/sdb
+[2:0:0:0]    cd/dvd  NECVMWar VMware IDE CDR10 1.00  /dev/sr0
+
+root@PAR-PRD-BMI01:~# echo 1 > /sys/class/scsi_device/0\:0\:0\:0/device/rescan
+root@PAR-PRD-BMI01:~# echo 1 > /sys/class/scsi_device/0\:0\:1\:0/device/rescan
+
+or
+
+rescan-scsi-bus.sh
+
+
+root@PAR-PRD-BMI01:~# pvs
+  PV         VG      Fmt  Attr PSize   PFree
+  /dev/sda5  sys-vg  lvm2 a--   14.75g 1.67g
+  /dev/sdb1  data-vg lvm2 a--  <50.00g    0
+
+root@PAR-PRD-BMI01:~# growpart /dev/sdb 1
+CHANGED: partition=1 start=2048 old: size=104855552 end=104857600 new: size=146798559 end=146800607
+
+root@PAR-PRD-BMI01:~# pvresize /dev/sdb1
+  Physical volume "/dev/sdb1" changed
+  1 physical volume(s) resized or updated / 0 physical volume(s) not resized
+
+root@PAR-PRD-BMI01:~# pvs
+  PV         VG      Fmt  Attr PSize   PFree
+  /dev/sda5  sys-vg  lvm2 a--   14.75g  1.67g
+  /dev/sdb1  data-vg lvm2 a--  <70.00g 20.00g
+
+root@PAR-PRD-BMI01:~# lvscan
+  ACTIVE            '/dev/data-vg/data1' [<50.00 GiB] inherit
+  ACTIVE            '/dev/sys-vg/root' [3.72 GiB] inherit
+  ACTIVE            '/dev/sys-vg/home' [<4.12 GiB] inherit
+  ACTIVE            '/dev/sys-vg/tmp' [476.00 MiB] inherit
+  ACTIVE            '/dev/sys-vg/var' [3.72 GiB] inherit
+  ACTIVE            '/dev/sys-vg/swap' [1.05 GiB] inherit
+root@PAR-PRD-BMI01:~# lvextend /dev/data-vg/data1 -l+100%FREE -r
+  Size of logical volume data-vg/data1 changed from <50.00 GiB (12799 extents) to <70.00 GiB (17919 extents).
+  Logical volume data-vg/data1 successfully resized.
+resize2fs 1.46.2 (28-Feb-2021)
+Filesystem at /dev/mapper/data--vg-data1 is mounted on /data; on-line resizing required
+old_desc_blocks = 7, new_desc_blocks = 9
+The filesystem on /dev/mapper/data--vg-data1 is now 18349056 (4k) blocks long.
+
+root@PAR-PRD-BMI01:~# df -h /data
+Filesystem                  Size  Used Avail Use% Mounted on
+/dev/mapper/data--vg-data1   69G   20G   46G  30% /data
+
+root@PAR-PRD-BMI01:~# growpart /dev/sda 2
+CHANGED: partition=2 start=501758 old: size=30955489 end=31457247 new: size=51927009 end=52428767
+root@PAR-PRD-BMI01:~# lsblk
+NAME               MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda                  8:0    0   25G  0 disk
++-sda1               8:1    0  243M  0 part /boot
++-sda2               8:2    0    1K  0 part
++-sda5               8:5    0 14.8G  0 part
+  +-sys--vg-root   254:0    0  3.7G  0 lvm  /
+  +-sys--vg-home   254:2    0  4.1G  0 lvm  /home
+  +-sys--vg-tmp    254:3    0  476M  0 lvm  /tmp
+  +-sys--vg-var    254:4    0  3.7G  0 lvm  /var
+  +-sys--vg-swap   254:5    0  1.1G  0 lvm  [SWAP]
+sdb                  8:16   0   70G  0 disk
++-sdb1               8:17   0   70G  0 part
+  +-data--vg-data1 254:1    0   70G  0 lvm  /data
+sr0                 11:0    1 1024M  0 rom
+testvg-testlv      254:6    0    4G  0 lvm
+
+root@PAR-PRD-BMI01:~# parted /dev/sda
+GNU Parted 3.4
+Using /dev/sda
+Welcome to GNU Parted! Type 'help' to view a list of commands.
+(parted) print
+Model: VMware Virtual disk (scsi)
+Disk /dev/sda: 26.8GB
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
+Disk Flags:
+
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   26.8GB  26.6GB  extended
+ 5      257MB   16.1GB  15.8GB  logical                lvm
+
+(parted) resizepart 5
+End?  [16.1GB]? 26.8GB
+(parted) print
+Model: VMware Virtual disk (scsi)
+Disk /dev/sda: 26.8GB
+Sector size (logical/physical): 512B/512B
+Partition Table: msdos
+Disk Flags:
+
+Number  Start   End     Size    Type      File system  Flags
+ 1      1049kB  256MB   255MB   primary   ext2         boot
+ 2      257MB   26.8GB  26.6GB  extended
+ 5      257MB   26.8GB  26.5GB  logical                lvm
+
+(parted) quit
+Information: You may need to update /etc/fstab.
+
+root@PAR-PRD-BMI01:~# pvresize /dev/sda5
+  Physical volume "/dev/sda5" changed
+  1 physical volume(s) resized or updated / 0 physical volume(s) not resized
+root@PAR-PRD-BMI01:~# pvs
+  PV         VG      Fmt  Attr PSize   PFree
+  /dev/sda5  sys-vg  lvm2 a--  <24.72g <11.64g
+  /dev/sdb1  data-vg lvm2 a--  <70.00g      0
+root@PAR-PRD-BMI01:~# lvscan
+  ACTIVE            '/dev/data-vg/data1' [<70.00 GiB] inherit
+  ACTIVE            '/dev/sys-vg/root' [3.72 GiB] inherit
+  ACTIVE            '/dev/sys-vg/home' [<4.12 GiB] inherit
+  ACTIVE            '/dev/sys-vg/tmp' [476.00 MiB] inherit
+  ACTIVE            '/dev/sys-vg/var' [3.72 GiB] inherit
+  ACTIVE            '/dev/sys-vg/swap' [1.05 GiB] inherit
+  
+root@PAR-PRD-BMI01:~# df -m /dev/sys-vg/home
+Filesystem               1M-blocks  Used Available Use% Mounted on
+/dev/mapper/sys--vg-home      4077  3144       723  82% /home
+root@PAR-PRD-BMI01:~# lvextend /dev/sys-vg/home -L+11283M -r
+  Rounding size to boundary between physical extents: <11.02 GiB.
+  Size of logical volume sys-vg/home changed from <4.12 GiB (1054 extents) to <15.14 GiB (3875 extents).
+  Logical volume sys-vg/home successfully resized.
+resize2fs 1.46.2 (28-Feb-2021)
+Filesystem at /dev/mapper/sys--vg-home is mounted on /home; on-line resizing required
+old_desc_blocks = 1, new_desc_blocks = 2
+The filesystem on /dev/mapper/sys--vg-home is now 3968000 (4k) blocks long.
+
+root@PAR-PRD-BMI01:~# df -h /home
+Filesystem                Size  Used Avail Use% Mounted on
+/dev/mapper/sys--vg-home   15G  3.1G   12G  22% /home
+root@PAR-PRD-BMI01:~# df -h /data
+Filesystem                  Size  Used Avail Use% Mounted on
+/dev/mapper/data--vg-data1   69G   20G   46G  30% /data
+root@PAR-PRD-BMI01:~# date
+Thu 14 Dec 2023 03:38:14 AM CET
+
+
+
+Change volumes size after LUN size change on SAN:
+#################################################
+
+SAN side:
+---------
+Expand volumes in SAN  (old size 90GB | new size 120GB)
+Note: Be careful on the size change, abd make sure you disabled "Format" option
+
+On linux side:
+--------------
+Identify the multipaths that belong to the volume by running "pvs" command
+
+
+Linux-server01:~ # pvs
+  PV                                                              VG       Fmt  Attr PSize   PFree
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000083-part2 system   lvm2 a--   49.99g  7.99g
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000084       vgsap    lvm2 a--   50.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000085       vgdata   lvm2 a--   90g        0
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000086       vgdata   lvm2 a--   90g        0
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000087       vgdata   lvm2 a--   90g        0
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000088       vgdata   lvm2 a--   90g        0
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000089       vglog    lvm2 a--   75.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca80000000000008a       vglog    lvm2 a--   75.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca80000000000008b       vgshared lvm2 a--  150.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca80000000000008c       vgshared lvm2 a--  150.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca80000000000008d       vgbackup lvm2 a--  300.00g     0
+
+Please notice that we ave 90GB on each data path and 0GB available
+
+Update size on each data path (this is an example)
+-----------------------------------------------------
+multipathd resize map 360050768128180aca800000000000085
+multipathd resize map 360050768128180aca800000000000086
+multipathd resize map 360050768128180aca800000000000087
+multipathd resize map 360050768128180aca800000000000088
+
+Resize PV for each path:
+------------------------
+pvresize /dev/disk/by-id/dm-name-360050768128180aca800000000000085
+pvresize /dev/disk/by-id/dm-name-360050768128180aca800000000000086
+pvresize /dev/disk/by-id/dm-name-360050768128180aca800000000000087
+pvresize /dev/disk/by-id/dm-name-360050768128180aca800000000000088
+
+Check new size is updated on PV'S (new size should be 120GB)
+
+Linux-server01:~ # pvs
+  PV                                                              VG       Fmt  Attr PSize   PFree
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000083-part2 system   lvm2 a--   49.99g  7.99g
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000084       vgsap    lvm2 a--   50.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000085       vgdata   lvm2 a--  120.00g 12.48g
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000086       vgdata   lvm2 a--  120.00g 12.48g
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000087       vgdata   lvm2 a--  120.00g 12.48g
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000088       vgdata   lvm2 a--  120.00g 12.48g
+  /dev/disk/by-id/dm-name-360050768128180aca800000000000089       vglog    lvm2 a--   75.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca80000000000008a       vglog    lvm2 a--   75.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca80000000000008b       vgshared lvm2 a--  150.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca80000000000008c       vgshared lvm2 a--  150.00g     0
+  /dev/disk/by-id/dm-name-360050768128180aca80000000000008d       vgbackup lvm2 a--  300.00g     0
+
+  Please notice that we have now 120GB on each data path and 12.48GB available
+  Rum a VG scan in order to update the VG
+
+  Linux-server01:~ # vgscan
+  Found volume group "vgbackup" using metadata type lvm2
+  Found volume group "vgsap" using metadata type lvm2
+  Found volume group "system" using metadata type lvm2
+  Found volume group "vgshared" using metadata type lvm2
+  Found volume group "vglog" using metadata type lvm2
+  Found volume group "vgdata" using metadata type lvm2
+
+Scan VG:
+--------
+Linux-server01:~ # vgs
+  VG       #PV #LV #SN Attr   VSize   VFree
+  system     1   2   0 wz--n-  49.99g   7.99g
+  vgbackup   1   1   0 wz--n- 300.00g      0
+  vgdata     4   1   0 wz--n- 479.98g    120g
+  vglog      2   1   0 wz--n- 149.99g      0
+  vgsap      1   1   0 wz--n-  50.00g      0
+  vgshared   2   1   0 wz--n- 299.99g      0
+Please notice that the new size has been updated on the VG
+
+Extend LV:
+----------
+Linux-server01:~ # lvextend -L+50G /dev/mapper/vgdata-lvdata
+  Using stripesize of last segment 256.00 KiB
+  Size of logical volume vgdata/lvdata changed from 360.05 GiB (92172 extents) to 410.05 GiB (104972 extents).
+  Logical volume vgdata/lvdata successfully resized.
+
+Expand the FS:
+--------------
+
+Extend the LV depending on the filesystem type.
+
+For XFS format:
+---------------
+Linux-server01:~ # xfs_growfs /hana/data
+
+For EXT4:
+--------
+Linux-server01:~ # resize2f /hana/data
